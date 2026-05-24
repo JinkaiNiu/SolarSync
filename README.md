@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="Resources/app.ico" width="80" alt="SolarSync Logo">
-  <h1>朝夕·光色 SolarSync</h1>
+  <h1>朝夕·光色 <sub>SolarSync</sub></h1>
   <p><b>根据日出日落时间自动切换 Windows 浅色/深色模式</b></p>
   <p>Automatically switch Windows light/dark theme based on sunrise & sunset times</p>
 
@@ -15,7 +14,7 @@
 
   <p>
     <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet" alt=".NET 8">
-    <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?style=flat&logo=windows" alt="Windows">
+    <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?style=flat&logo=windows11" alt="Windows">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
     <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version 1.0.0">
   </p>

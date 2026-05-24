@@ -1,0 +1,12 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.cs text diff
+*.csproj text
+*.json text
+*.ps1 text
+*.md text
+*.gitignore text
+*.gitattributes text
+*.ico binary
