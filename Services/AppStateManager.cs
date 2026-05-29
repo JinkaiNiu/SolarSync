@@ -2,9 +2,10 @@
 // 朝夕·光色 - 全局状态管理器
 // 开发者: JinkaiNiu (niujinkai1997@qq.com)
 // 主页: https://kaneniu.com
-// 版本: 1.0.0.0
+// 版本: 1.0.3.0
 // 说明: 协调 IP 定位、日出日落计算、主题切换等模块，
 //       管理定时器实现日出日落时自动切换主题。
+//       启动时自动应用当前时段应处的主题模式。
 // ============================================================================
 
 using SolarSync.Models;
@@ -17,6 +18,7 @@ namespace SolarSync.Services;
 /// 2. 根据日出日落时间设置定时器自动切换主题
 /// 3. 每日凌晨自动重算，应对跨日
 /// 4. 提供手动刷新和手动切换主题功能
+/// 5. 定期一致性校验，确保主题始终与当前时段匹配
 /// </summary>
 public sealed class AppStateManager : IDisposable
 {
@@ -24,6 +26,7 @@ public sealed class AppStateManager : IDisposable
     private readonly ThemeService _themeService;
     private readonly System.Threading.Timer? _dailyTimer;
     private readonly System.Threading.Timer? _switchTimer;
+    private readonly System.Threading.Timer? _syncTimer;
     private CancellationTokenSource? _cts;
 
     /// <summary>当前 IP 地理位置信息</summary>
@@ -64,14 +67,28 @@ public sealed class AppStateManager : IDisposable
         _switchTimer = new System.Threading.Timer(
             _ => PerformScheduledSwitch(),
             null, Timeout.Infinite, Timeout.Infinite);
+
+        // 一致性校验定时器：每 60 秒检查主题是否与当前时段匹配
+        _syncTimer = new System.Threading.Timer(
+            _ => SyncTheme(),
+            null, Timeout.Infinite, Timeout.Infinite);
     }
 
-    /// <summary>初始化：立即刷新数据并调度下一次每日更新</summary>
+    /// <summary>初始化：立即刷新数据、应用当前主题，并调度下一次每日更新</summary>
     public async Task InitializeAsync()
     {
         await RefreshAsync();
         IsInitialized = true;
         ScheduleNextDailyCheck();
+        StartSyncTimer();
+
+        if (IsAutoMode && CurrentSolarInfo != null)
+        {
+            var targetTheme = CurrentSolarInfo.IsDaytime(DateTime.Now)
+                ? ThemeMode.Light : ThemeMode.Dark;
+            if (_themeService.GetCurrentTheme() != targetTheme)
+                await ApplyThemeAsync(targetTheme);
+        }
     }
 
     /// <summary>刷新所有数据（IP、城市、经纬度、日出日落）</summary>
@@ -103,6 +120,9 @@ public sealed class AppStateManager : IDisposable
             // 自动模式下根据新数据重新调度
             if (IsAutoMode && CurrentSolarInfo != null)
                 ScheduleNextSwitch();
+
+            // 每次刷新后重新设定每日定时器，确保跨日后数据持续更新
+            ScheduleNextDailyCheck();
         }
         catch { }
     }
@@ -146,26 +166,33 @@ public sealed class AppStateManager : IDisposable
     /// <summary>定时器回调：执行计划中的主题切换</summary>
     private void PerformScheduledSwitch()
     {
-        if (!IsAutoMode || CurrentSolarInfo == null) return;
-
-        var now = DateTime.Now;
-        var targetTheme = CurrentSolarInfo.IsDaytime(now)
-            ? ThemeMode.Light : ThemeMode.Dark;
-
-        if (_themeService.GetCurrentTheme() != targetTheme)
+        try
         {
-            OnThemeSwitching?.Invoke();
-            // 后台线程执行切换，完成后回调 UI 线程
-            Task.Run(() =>
-            {
-                _themeService.SetTheme(targetTheme);
-            }).ContinueWith(_ =>
-            {
-                OnThemeChanged?.Invoke(targetTheme);
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-        }
+            if (!IsAutoMode || CurrentSolarInfo == null) return;
 
-        ScheduleNextSwitch();
+            var now = DateTime.Now;
+            var targetTheme = CurrentSolarInfo.IsDaytime(now)
+                ? ThemeMode.Light : ThemeMode.Dark;
+
+            if (_themeService.GetCurrentTheme() != targetTheme)
+            {
+                OnThemeSwitching?.Invoke();
+                // 后台线程执行切换，OnThemeChanged 在 MainForm 中自处理跨线程调度
+                Task.Run(() =>
+                {
+                    _themeService.SetTheme(targetTheme);
+                }).ContinueWith(_ =>
+                {
+                    OnThemeChanged?.Invoke(targetTheme);
+                }, TaskScheduler.Default);
+            }
+
+            ScheduleNextSwitch();
+        }
+        catch
+        {
+            // 静默失败，防止 ThreadPool 线程未捕获异常导致进程退出
+        }
     }
 
     /// <summary>计算并设置下一次切换的定时器</summary>
@@ -174,24 +201,27 @@ public sealed class AppStateManager : IDisposable
         if (CurrentSolarInfo == null) return;
 
         var now = DateTime.Now;
-        TimeSpan delay;
+        var sunriseTime = CurrentSolarInfo.Sunrise.TimeOfDay;
+        var sunsetTime = CurrentSolarInfo.Sunset.TimeOfDay;
+        var today = now.Date;
 
-        if (CurrentSolarInfo.IsDaytime(now))
-        {
-            // 白昼：定时到日落
-            delay = CurrentSolarInfo.TimeUntilSunset(now);
-        }
+        var todaySunrise = today + sunriseTime;
+        var todaySunset = today + sunsetTime;
+
+        DateTime nextEvent;
+
+        if (now < todaySunrise)
+            nextEvent = todaySunrise;
+        else if (now < todaySunset)
+            nextEvent = todaySunset;
         else
-        {
-            // 夜间：定时到次日日出
-            var tomorrowSunrise = CurrentSolarInfo.TimeUntilSunrise(now);
-            delay = tomorrowSunrise > TimeSpan.Zero
-                ? tomorrowSunrise
-                : TimeSpan.FromHours(1);
-        }
+            nextEvent = todaySunrise.AddDays(1);
 
-        if (delay <= TimeSpan.Zero)
-            delay = TimeSpan.FromMinutes(1);
+        var delay = nextEvent - now;
+
+        // 防止因亚毫秒截断 (long)0 导致定时器立即重入形成忙等
+        if (delay.TotalMilliseconds < 1000)
+            delay = TimeSpan.FromSeconds(1);
 
         _switchTimer?.Change((long)delay.TotalMilliseconds, Timeout.Infinite);
     }
@@ -207,12 +237,44 @@ public sealed class AppStateManager : IDisposable
         _dailyTimer?.Change((long)delay.TotalMilliseconds, Timeout.Infinite);
     }
 
+    /// <summary>启动一致性校验定时器（初始延迟 60 秒，之后每 60 秒）</summary>
+    private void StartSyncTimer()
+    {
+        _syncTimer?.Change(TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    /// <summary>
+    /// 一致性校验：当前主题是否与当前时段应处状态一致，
+    /// 若不匹配则自动修正。作为精确定时器的安全兜底。
+    /// </summary>
+    private void SyncTheme()
+    {
+        try
+        {
+            if (!IsAutoMode || CurrentSolarInfo == null) return;
+
+            var now = DateTime.Now;
+            var expectedTheme = CurrentSolarInfo.IsDaytime(now)
+                ? ThemeMode.Light : ThemeMode.Dark;
+
+            if (_themeService.GetCurrentTheme() != expectedTheme)
+            {
+                OnThemeSwitching?.Invoke();
+                Task.Run(() => _themeService.SetTheme(expectedTheme))
+                    .ContinueWith(_ => OnThemeChanged?.Invoke(expectedTheme),
+                        TaskScheduler.Default);
+            }
+        }
+        catch { }
+    }
+
     public void Dispose()
     {
         _cts?.Cancel();
         _cts?.Dispose();
         _dailyTimer?.Dispose();
         _switchTimer?.Dispose();
+        _syncTimer?.Dispose();
         _ipService.Dispose();
     }
 }

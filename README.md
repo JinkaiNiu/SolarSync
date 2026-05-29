@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet" alt=".NET 8">
     <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D6?style=flat&logo=windows11" alt="Windows">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
-    <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version 1.0.0">
+    <img src="https://img.shields.io/badge/version-1.0.3-blue" alt="Version 1.0.3">
   </p>
 </div>
 

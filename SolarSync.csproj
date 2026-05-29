@@ -16,8 +16,8 @@
     <Product>朝夕·光色</Product>
     <Title>朝夕·光色</Title>
     <AssemblyTitle>朝夕·光色</AssemblyTitle>
-    <Version>1.0.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.3.0</Version>
+    <FileVersion>1.0.3.0</FileVersion>
     <Description>根据日出日落时间自动切换 Windows 浅色/深色模式。基于 NOAA 太阳位置算法，使用 myip.ipip.net 国内 IP 定位，无需第三方依赖。</Description>
 
     <!-- 程序图标 -->

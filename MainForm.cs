@@ -2,7 +2,7 @@
 // 朝夕·光色 - 主窗口及系统托盘
 // 开发者: JinkaiNiu (niujinkai1997@qq.com)
 // 主页: https://kaneniu.com
-// 版本: 1.0.0.0
+// 版本: 1.0.3.0
 // 说明: 主界面展示公网 IP、城市、日出日落时间、主题模式、数据来源；
 //       系统托盘支持隐藏/显示、手动切换、开机自启等功能。
 // ============================================================================
@@ -59,7 +59,7 @@ public sealed class MainForm : Form
         _state.OnThemeSwitching += OnThemeSwitching;
 
         // ---- 窗口基础设置 ----
-        Text = "朝夕·光色 v1.0 — 日出日落主题切换";
+        Text = "朝夕·光色 v1.0.3 — 日出日落主题切换";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -185,7 +185,7 @@ public sealed class MainForm : Form
         {
             Location = new Point(290, footerY),
             Size = new Size(150, 20),
-            Text = "朝夕·光色  v1.0",
+            Text = "朝夕·光色  v1.0.3",
             TextAlign = ContentAlignment.MiddleRight,
             Font = footerFont,
             ForeColor = Color.Gray,
@@ -243,7 +243,7 @@ public sealed class MainForm : Form
         _trayMenu.Items.Add("退出", null, (_, _) => ExitApp());
 
         // ---- 系统托盘图标 ----
-        var trayText = "朝夕·光色 v1.0 — 根据日出日落切换 Windows 主题";
+        var trayText = "朝夕·光色 v1.0.3 — 根据日出日落切换 Windows 主题";
         _trayIcon = new NotifyIcon
         {
             Icon = CreateAppIcon(),
@@ -428,7 +428,7 @@ public sealed class MainForm : Form
     private void ShowAbout()
     {
         var ver = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetName().Version?.ToString(3) ?? "1.0.0";
+            .GetName().Version?.ToString(3) ?? "1.0.3";
         MessageBox.Show(
             $"朝夕·光色  v{ver}\r\n\r\n"
             + "根据日出日落时间自动切换 Windows 浅色/深色模式\r\n\r\n"
