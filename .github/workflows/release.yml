@@ -1,0 +1,43 @@
+name: 构建并发布
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: 安装 .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: 提取版本号
+      shell: pwsh
+      run: |
+        $ver = Select-String -Path SolarSync.csproj -Pattern '<Version>(.+)</Version>' | % { $_.Matches.Groups[1].Value }
+        echo "VERSION=$ver" >> $env:GITHUB_ENV
+        echo "提取到版本: $ver"
+
+    - name: 编译发布单文件 EXE
+      run: dotnet publish -c Release -r win-x64 --self-contained true
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: SolarSync-${{ env.VERSION }}
+        path: bin/Release/net8.0-windows/win-x64/publish/SolarSync.exe
+
+    - name: 创建 Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ env.VERSION }}
+        name: v${{ env.VERSION }}
+        body_path: CHANGELOG.md
+        files: bin/Release/net8.0-windows/win-x64/publish/SolarSync.exe
