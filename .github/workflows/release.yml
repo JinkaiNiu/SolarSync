@@ -21,7 +21,6 @@ jobs:
       run: |
         $ver = Select-String -Path SolarSync.csproj -Pattern '<Version>(.+)</Version>' | % { $_.Matches.Groups[1].Value }
         echo "VERSION=$ver" >> $env:GITHUB_ENV
-        echo "提取到版本: $ver"
 
     - name: 编译发布单文件 EXE
       run: dotnet publish -c Release -r win-x64 --self-contained true
@@ -39,14 +38,6 @@ jobs:
       run: |
         $tag = "v$env:VERSION"
         $file = "bin/Release/net8.0-windows/win-x64/publish/SolarSync.exe"
-        $notes = @"
-## 自动构建信息
-- 提交: $env:GITHUB_SHA
-- 运行号: $env:GITHUB_RUN_NUMBER
-
----
-$(Get-Content CHANGELOG.md -Raw)
-"@
-        # 清除同标签旧 release（如有），避免 tag 冲突
+        $notes = "自动构建 #$env:GITHUB_RUN_NUMBER`n提交: $env:GITHUB_SHA"
         gh release delete $tag --cleanup-tag --yes -R $env:GITHUB_REPOSITORY 2>$null
         gh release create $tag --title $tag --notes $notes $file -R $env:GITHUB_REPOSITORY
